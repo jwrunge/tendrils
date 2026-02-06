@@ -1,4 +1,4 @@
-const CLI = @import("io/cli.zig").CLI;
+const CLI = @import("../io/cli.zig").CLI;
 
 pub fn printHelp() !void {
     try CLI.printlns(&[_][]const u8{
