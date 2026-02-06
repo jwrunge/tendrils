@@ -1,10 +1,12 @@
 const std = @import("std");
 const CLI = @import("io/cli.zig").CLI;
+const OS = @import("os/mod.zig").OS;
 
 pub const StateMode = enum { Help, Init };
 
 pub const State = struct {
     mode: StateMode,
+    os: OS,
 
     pub fn init(allocator: std.mem.Allocator) !State {
         const args = try std.process.argsAlloc(allocator);
@@ -28,6 +30,7 @@ pub const State = struct {
 
         return State{
             .mode = mode,
+            .os = try OS.init(),
         };
     }
 };

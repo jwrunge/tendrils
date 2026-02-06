@@ -1,0 +1,15 @@
+{
+  "software": {
+    "git": "latest"
+  },
+  "linux": {
+    "debian": {
+      "match": [{
+        "cmd": "/etc/os-release",
+        "match": "ID=debian"
+      }]
+    }
+  },
+  "macos": { "use": "homebrew" },
+  "windows": { "use": "chocolatey" }
+}

@@ -10,7 +10,7 @@ pub fn dispatch(allocator: std.mem.Allocator, state: State) !void {
             return;
         },
         .Init => {
-            try initProject(allocator);
+            try initProject(allocator, state);
             return;
         },
     }
