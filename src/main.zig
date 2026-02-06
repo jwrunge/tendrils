@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const printHelp = @import("help.zig").printHelp;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -27,20 +28,6 @@ pub fn main() !void {
 
     std.debug.print("Unknown command: {s}\n\n", .{cmd});
     try printHelp();
-}
-
-fn printHelp() !void {
-    var out_buf: [2048]u8 = undefined;
-    var out = std.fs.File.stdout().writer(&out_buf);
-    try out.interface.print(
-        "Tendrils (early preview)\n\n" ++
-            "Usage:\n" ++
-            "  tendrils init\n\n" ++
-            "Commands:\n" ++
-            "  init    Initialize tendrils in the current folder\n",
-        .{},
-    );
-    try out.interface.flush();
 }
 
 fn initProject(allocator: std.mem.Allocator) !void {
