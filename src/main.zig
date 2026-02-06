@@ -46,7 +46,9 @@ fn printHelp() !void {
 fn initProject(allocator: std.mem.Allocator) !void {
     var out_buf: [2048]u8 = undefined;
     var out = std.fs.File.stdout().writer(&out_buf);
-    try out.interface.print("Initializing Tendrils in current folder...\n", .{});
+    const dev_mode = builtin.mode == .Debug;
+    const target_label = if (dev_mode) "demo-output" else "current folder";
+    try out.interface.print("Initializing Tendrils in {s}...\n", .{target_label});
     try out.interface.flush();
 
     const os_tag = builtin.os.tag;
@@ -59,7 +61,7 @@ fn initProject(allocator: std.mem.Allocator) !void {
 
     try checkPrereqs(allocator, os_tag);
 
-    try createLayout(allocator, os_name);
+    try createLayout(allocator, os_name, dev_mode);
 
     try out.interface.print("Initialization complete.\n", .{});
     try out.interface.flush();
@@ -113,10 +115,18 @@ fn checkPrereqs(allocator: std.mem.Allocator, os_tag: std.Target.Os.Tag) !void {
     }
 }
 
-fn createLayout(allocator: std.mem.Allocator, os_name: []const u8) !void {
+fn createLayout(allocator: std.mem.Allocator, os_name: []const u8, dev_mode: bool) !void {
     const cwd = std.fs.cwd();
+    const base_path = if (dev_mode) "demo-output" else ".";
 
-    try cwd.makePath("profiles/default/scripts");
+    if (dev_mode) {
+        try cwd.makePath(base_path);
+    }
+
+    var base_dir = try cwd.openDir(base_path, .{});
+    defer base_dir.close();
+
+    try base_dir.makePath("profiles/default/scripts");
 
     const tendrils_json = try std.fmt.allocPrint(
         allocator,
@@ -125,9 +135,9 @@ fn createLayout(allocator: std.mem.Allocator, os_name: []const u8) !void {
     );
     defer allocator.free(tendrils_json);
 
-    try writeFileIfMissing(cwd, "tendrils.json", tendrils_json);
-    try writeFileIfMissing(cwd, "hosts.json", "{\n  \"local\": [\"localhost\"]\n}\n");
-    try writeFileIfMissing(cwd, "profiles/default/software_declarations.json",
+    try writeFileIfMissing(base_dir, "tendrils.json", tendrils_json);
+    try writeFileIfMissing(base_dir, "hosts.json", "{\n  \"local\": [\"localhost\"]\n}\n");
+    try writeFileIfMissing(base_dir, "profiles/default/software_declarations.json",
         "{\n" ++
             "  \"software\": {\n" ++
             "    \"git\": \"latest\"\n" ++
@@ -181,6 +191,7 @@ fn confirm(prompt: []const u8) !bool {
     if (trimmed.len == 0) return false;
     return std.ascii.toLower(trimmed[0]) == 'y';
 }
+
 
 fn hasCommand(allocator: std.mem.Allocator, name: []const u8) !bool {
     if (builtin.os.tag == .windows) return false;
