@@ -2,6 +2,53 @@
 
 ## Declarative, cross-platform automation
 
+## Basic functionality plan
+
+### Goals for `tendrils init`
+- Initialize Tendrils in the current folder (when invoked via `cargo tendrils init` or `npx tendrils`).
+- Detect OS (macOS, Linux, Windows).
+- Prompt to install foundational prerequisites (e.g., OpenSSH; Homebrew on macOS).
+- Create a minimal project layout and configuration files needed for subsequent commands.
+- Be safe-by-default (no root-level changes without explicit confirmation).
+
+### CLI surface (v1)
+- `tendrils init`
+- `tendrils addkey`
+- `tendrils harden`
+- `tendrils revokekeys`
+- `tendrils apply` (apply software declarations)
+
+### Project layout (initialized in current folder)
+- `tendrils.json` (project config, platform detection results)
+- `hosts.json` (host groups)
+- `profiles/` (setup profiles)
+- `profiles/default/software_declarations.json`
+- `profiles/default/scripts/` (optional scripts or hooks)
+
+### Initialization flow (Unix-like first)
+- Detect OS and package manager capabilities.
+- Check for SSH tooling:
+    - macOS: `ssh`, `ssh-keygen` (via system or Xcode CLT), optional Homebrew install.
+    - Linux: `openssh-client` and `openssh-server` (distro-specific).
+- Prompt to install missing prerequisites.
+- Write initial config files and default profile.
+
+### Windows (shim for now)
+- Detect Windows and show a clear message that initialization is limited.
+- Optionally check for OpenSSH client availability (PowerShell `Get-WindowsCapability`).
+- Generate the same file layout, but defer package installs.
+
+### Safety and permissions
+- Run as current user by default.
+- Escalate only when required, and only for specific commands.
+- Document least-privilege approach for automation users.
+
+### Next implementation steps
+- Implement OS detection and prerequisite checks.
+- Implement `tendrils init` with prompts and file generation.
+- Implement `addkey` for local host as first target.
+- Implement `apply` for `software_declarations.json` on macOS and Debian-based Linux.
+
 ### Setting up hosts
 
 Declaratively define hosts in hosts.json.
