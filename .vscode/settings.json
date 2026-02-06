@@ -1,0 +1,8 @@
+{
+    "chat.tools.terminal.autoApprove": {
+        "/^zig build run$/": {
+            "approve": true,
+            "matchCommandLine": true
+        }
+    }
+}
