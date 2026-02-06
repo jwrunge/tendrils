@@ -3,6 +3,7 @@
         "/^zig build run$/": {
             "approve": true,
             "matchCommandLine": true
-        }
+        },
+        "zig": true
     }
 }

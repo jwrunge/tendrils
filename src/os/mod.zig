@@ -3,6 +3,13 @@ const builtin = @import("builtin");
 const Platform = enum { windows, macos, linux };
 const CLI = @import("../io/cli.zig").CLI;
 
+pub const Installable = struct {
+    command: []const u8,
+    prompt: []const u8,
+    use_installer: ?bool,
+    commands: ?[]const []const []const u8,
+};
+
 pub const OS = struct {
     platform: Platform,
     installer: ?[]const u8,
@@ -24,6 +31,13 @@ pub const OS = struct {
 
     pub fn isExecutable(self: *const OS, path: []const u8) !bool {
         if (self.platform == .windows) return false;
+        const stat = std.fs.cwd().statFile(path) catch |err| switch (err) {
+            error.FileNotFound => return false,
+            error.AccessDenied => return false,
+            else => return err,
+        };
+        if (stat.kind != .file) return false;
+
         std.posix.access(path, std.posix.X_OK) catch |err| switch (err) {
             error.FileNotFound => return false,
             error.AccessDenied => return false,
@@ -56,59 +70,68 @@ pub const OS = struct {
         return false;
     }
 
+    pub fn checkInstall(self: *const OS, allocator: std.mem.Allocator, installable: Installable) !void {
+        const has_command = try self.hasCommand(allocator, installable.command);
+        if (!has_command) {
+            if (try CLI.confirm(installable.prompt)) {
+                if (installable.use_installer orelse false) {
+                    switch (self.platform) {
+                        .macos => {
+                            _ = try runCommand(allocator, &[_][]const u8{ "brew", "install", installable.command });
+                        },
+                        .linux => {
+                            _ = try runCommand(allocator, &[_][]const u8{ "sudo", "apt-get", "install", "-y", installable.command });
+                        },
+                        else => {
+                            const message = try std.fmt.allocPrint(allocator, "Please install {s} manually.", .{installable.command});
+                            defer allocator.free(message);
+                            try CLI.println(message);
+                        },
+                    }
+                } else if (installable.commands) |commands| {
+                    const terms = try runCommandsSequential(allocator, commands);
+                    allocator.free(terms);
+                } else {
+                    const message = try std.fmt.allocPrint(allocator, "Please install {s} manually.", .{installable.command});
+                    defer allocator.free(message);
+                    try CLI.println(message);
+                }
+            } else {
+                const message = try std.fmt.allocPrint(allocator, "{s} not installed.", .{installable.command});
+                defer allocator.free(message);
+                try CLI.println(message);
+            }
+        }
+    }
+
     pub fn checkPrereqs(self: *const OS, allocator: std.mem.Allocator) !void {
         // Check for platform-specific prerequisites
         switch (self.platform) {
             .windows => {},
             .macos => {
-                const has_brew = try self.hasCommand(allocator, "brew");
-                if (!has_brew) {
-                    if (try CLI.confirm("Homebrew not found. Install? [y/N] ")) {
-                        try CLI.println("Installing Homebrew...");
-                        const terms = try runCommandsSequential(allocator, &[_][]const []const u8{
-                            &[_][]const u8{
-                                "/bin/bash",
-                                "-c",
-                                "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)",
-                            },
-                        });
-                        allocator.free(terms);
-                    }
-                }
+                try self.checkInstall(allocator, .{
+                    .command = "brew",
+                    .prompt = "Homebrew not found. Install? [y/N] ",
+                    .use_installer = null,
+                    .commands = &[_][]const []const u8{
+                        &[_][]const u8{
+                            "/bin/bash",
+                            "-c",
+                            "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)",
+                        },
+                    },
+                });
             },
             // linux
             else => {},
         }
 
         // Check SSH
-        const has_ssh = try self.hasCommand(allocator, "ssh");
-        const has_ssh_keygen = try self.hasCommand(allocator, "ssh-keygen");
-        if (!has_ssh or !has_ssh_keygen) {
-            if (try CLI.confirm("OpenSSH tools not found. Install? [y/N] ")) {
-                switch (self.platform) {
-                    .macos => {
-                        if (try self.hasCommand(allocator, "brew")) {
-                            _ = try runCommand(allocator, &[_][]const u8{ "brew", "install", "openssh" });
-                        } else {
-                            try CLI.println("Install Homebrew first, then: brew install openssh");
-                        }
-                    },
-                    .linux => {
-                        if (try isDebianLike()) {
-                            _ = try runCommand(allocator, &[_][]const u8{ "sudo", "apt-get", "update" });
-                            _ = try runCommand(allocator, &[_][]const u8{ "sudo", "apt-get", "install", "-y", "openssh-client", "openssh-server" });
-                        } else {
-                            try CLI.println("Install OpenSSH via your distro package manager.");
-                        }
-                    },
-                    else => {
-                        try CLI.println("Install OpenSSH via your system package manager.");
-                    },
-                }
-            } else {
-                try CLI.println("OpenSSH tools not installed.");
-            }
-        }
+        try self.checkInstall(allocator, .{ .command = "ssh", .prompt = "ssh not found. Install? [y/N] ", .use_installer = true, .commands = null });
+        try self.checkInstall(allocator, .{ .command = "ssh-keygen", .prompt = "ssh-keygen not found. Install? [y/N] ", .use_installer = true, .commands = null });
+
+        // Check SSH
+        try self.checkInstall(allocator, .{ .command = "yazi", .prompt = "yazi not found. Install? [y/N] ", .use_installer = true, .commands = null });
     }
 };
 

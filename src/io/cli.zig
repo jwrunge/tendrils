@@ -26,15 +26,12 @@ pub const CLI = struct {
         }
     }
 
-    pub fn readln(prompt: []const u8) ![]const u8 {
+    pub fn readln(prompt: []const u8, buffer: []u8) ![]const u8 {
         try CLI.print(prompt);
 
-        var in_buf: [256]u8 = undefined;
-        var in_reader = std.fs.File.stdin().reader(&in_buf);
-        var line_buf: [16]u8 = undefined;
-        const n = try in_reader.read(&line_buf);
+        const n = try std.fs.File.stdin().read(buffer);
         if (n == 0) return "";
-        var slice = line_buf[0..n];
+        var slice = buffer[0..n];
         if (std.mem.indexOfScalar(u8, slice, '\n')) |idx| {
             slice = slice[0..idx];
         }
@@ -42,7 +39,8 @@ pub const CLI = struct {
     }
 
     pub fn confirm(prompt: []const u8) !bool {
-        const input = try CLI.readln(prompt);
+        var buf: [256]u8 = undefined;
+        const input = try CLI.readln(prompt, &buf);
         if (input.len == 0) return false;
         return std.ascii.toLower(input[0]) == 'y';
     }
